@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Mock Quiz — JobSuperFast</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css" />
+<style>
+  .quiz-card { max-width: 640px; margin: 0 auto 60px; background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 28px; }
+  .quiz-progress { font-size: 12.5px; color: var(--text-muted); margin-bottom: 10px; }
+  .quiz-question { font-size: 16px; font-weight: 700; margin-bottom: 18px; }
+  .quiz-option { display: block; width: 100%; text-align: left; border: 1px solid var(--border); background: var(--bg); color: var(--text); border-radius: 8px; padding: 12px 14px; margin-bottom: 10px; cursor: pointer; font-size: 13.5px; }
+  .quiz-option:hover { border-color: var(--accent); }
+  .quiz-option.correct { border-color: var(--success); background: rgba(52,209,124,0.12); }
+  .quiz-option.wrong { border-color: var(--danger); background: rgba(241,96,99,0.12); }
+  .quiz-option:disabled { cursor: default; }
+  .quiz-result { text-align: center; }
+  .quiz-result .score { font-size: 40px; font-weight: 700; color: var(--accent); }
+</style>
+</head>
+<body>
+
+<div id="app-utility"></div>
+<div id="app-ticker"></div>
+<div id="app-header"></div>
+
+<main class="container">
+  <div class="page-hero">
+    <h1>❓ Mock Quiz</h1>
+    <p>Quick General Awareness &amp; Reasoning practice — common for SSC, Railway and Banking exams.</p>
+  </div>
+
+  <div class="quiz-card" id="quiz-card"></div>
+</main>
+
+<footer class="site-footer">
+  <div class="container"><div class="footer-bottom"><span>© 2025 JobSuperFast.</span></div></div>
+</footer>
+
+<div id="app-modals"></div>
+
+<script src="firebase-config.js"></script>
+<script src="script.js"></script>
+<script>
+  const QUIZ_QUESTIONS = [
+    { q: "Who is known as the 'Father of the Indian Constitution'?", options: ["Mahatma Gandhi", "Dr. B.R. Ambedkar", "Jawaharlal Nehru", "Sardar Patel"], answer: 1 },
+    { q: "The headquarters of the Staff Selection Commission (SSC) is located in?", options: ["Mumbai", "New Delhi", "Kolkata", "Chennai"], answer: 1 },
+    { q: "Which article of the Indian Constitution deals with the Right to Equality?", options: ["Article 14", "Article 21", "Article 32", "Article 370"], answer: 0 },
+    { q: "If A's age is twice B's age and the sum of their ages is 45, what is B's age?", options: ["10", "15", "20", "25"], answer: 1 },
+    { q: "The Reserve Bank of India was established in which year?", options: ["1935", "1947", "1950", "1969"], answer: 0 },
+  ];
+  let currentQ = 0, score = 0;
+
+  function renderQuiz() {
+    const card = document.getElementById("quiz-card");
+    if (currentQ >= QUIZ_QUESTIONS.length) {
+      card.innerHTML = `
+        <div class="quiz-result">
+          <div class="score">${score}/${QUIZ_QUESTIONS.length}</div>
+          <p style="color:var(--text-muted);">Quiz complete!</p>
+          <button class="btn btn-accent" onclick="restartQuiz()">Try Again</button>
+        </div>`;
+      return;
+    }
+    const item = QUIZ_QUESTIONS[currentQ];
+    card.innerHTML = `
+      <div class="quiz-progress">Question ${currentQ + 1} of ${QUIZ_QUESTIONS.length} • Score: ${score}</div>
+      <div class="quiz-question">${item.q}</div>
+      ${item.options.map((opt, i) => `<button class="quiz-option" onclick="selectAnswer(${i})">${opt}</button>`).join("")}
+    `;
+  }
+
+  function selectAnswer(i) {
+    const item = QUIZ_QUESTIONS[currentQ];
+    const buttons = document.querySelectorAll(".quiz-option");
+    buttons.forEach((b, idx) => {
+      b.disabled = true;
+      if (idx === item.answer) b.classList.add("correct");
+      else if (idx === i) b.classList.add("wrong");
+    });
+    if (i === item.answer) score++;
+    setTimeout(() => { currentQ++; renderQuiz(); }, 900);
+  }
+
+  function restartQuiz() { currentQ = 0; score = 0; renderQuiz(); }
+  renderQuiz();
+</script>
+</body>
+</html>

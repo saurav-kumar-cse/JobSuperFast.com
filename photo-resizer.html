@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Photo Resizer — JobSuperFast</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css" />
+<style>
+  .tool-card { max-width: 560px; margin: 0 auto 60px; background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 28px; }
+  .drop-zone { border: 2px dashed var(--border); border-radius: 10px; padding: 30px; text-align: center; cursor: pointer; color: var(--text-muted); }
+  .drop-zone:hover { border-color: var(--accent); }
+  .preview-row { display: flex; gap: 20px; align-items: center; justify-content: center; margin: 20px 0; flex-wrap: wrap; }
+  .preview-box { text-align: center; }
+  .preview-box img { border: 1px solid var(--border); border-radius: 8px; background: #fff; }
+  .preview-box .label { font-size: 12px; color: var(--text-muted); margin-top: 6px; }
+  .size-info { font-size: 12.5px; color: var(--text-muted); text-align: center; margin-top: 4px; }
+</style>
+</head>
+<body>
+
+<div id="app-utility"></div>
+<div id="app-ticker"></div>
+<div id="app-header"></div>
+
+<main class="container">
+  <div class="page-hero">
+    <h1>🖼️ Photo Resizer for Govt Forms</h1>
+    <p>Resize your photo to standard application dimensions (default 200×230px, under 50KB) — right in your browser, nothing is uploaded anywhere.</p>
+  </div>
+
+  <div class="tool-card">
+    <div class="field">
+      <label for="width-input">Target Width (px)</label>
+      <input id="width-input" type="number" value="200" />
+    </div>
+    <div class="field">
+      <label for="height-input">Target Height (px)</label>
+      <input id="height-input" type="number" value="230" />
+    </div>
+    <div class="field">
+      <label for="maxkb-input">Max File Size (KB)</label>
+      <input id="maxkb-input" type="number" value="50" />
+    </div>
+
+    <div class="drop-zone" onclick="document.getElementById('file-input').click()">
+      📤 Click to choose a photo (JPG/PNG)
+      <input id="file-input" type="file" accept="image/*" style="display:none" onchange="handleFile(event)" />
+    </div>
+
+    <div class="preview-row" id="preview-row" style="display:none;">
+      <div class="preview-box">
+        <img id="original-preview" width="140" />
+        <div class="label">Original</div>
+      </div>
+      <div class="preview-box">
+        <img id="resized-preview" />
+        <div class="label">Resized</div>
+        <div class="size-info" id="size-info"></div>
+      </div>
+    </div>
+
+    <button class="btn btn-accent btn-block" id="download-btn" style="display:none;" onclick="downloadResized()">⬇ Download Resized Photo</button>
+  </div>
+</main>
+
+<footer class="site-footer">
+  <div class="container"><div class="footer-bottom"><span>© 2025 JobSuperFast.</span></div></div>
+</footer>
+
+<div id="app-modals"></div>
+
+<script src="firebase-config.js"></script>
+<script src="script.js"></script>
+<script>
+  let resizedDataUrl = null;
+
+  function handleFile(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => processImage(ev.target.result);
+    reader.readAsDataURL(file);
+  }
+
+  function processImage(dataUrl) {
+    const width = parseInt(document.getElementById("width-input").value) || 200;
+    const height = parseInt(document.getElementById("height-input").value) || 230;
+    const maxKb = parseInt(document.getElementById("maxkb-input").value) || 50;
+
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext("2d");
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, width, height);
+      ctx.drawImage(img, 0, 0, width, height);
+
+      // Reduce JPEG quality step by step until under the target KB size
+      let quality = 0.92;
+      let output = canvas.toDataURL("image/jpeg", quality);
+      while (output.length / 1024 > maxKb && quality > 0.1) {
+        quality -= 0.07;
+        output = canvas.toDataURL("image/jpeg", quality);
+      }
+
+      resizedDataUrl = output;
+      document.getElementById("original-preview").src = dataUrl;
+      document.getElementById("resized-preview").src = output;
+      document.getElementById("resized-preview").width = width;
+      document.getElementById("resized-preview").height = height;
+      document.getElementById("preview-row").style.display = "flex";
+      document.getElementById("download-btn").style.display = "inline-flex";
+      const kb = Math.round(output.length / 1024);
+      document.getElementById("size-info").textContent = `${width}×${height}px • ~${kb}KB`;
+      showToast(kb <= maxKb ? "Resized within target size" : "Could not fully reach target size — try a simpler photo");
+    };
+    img.src = dataUrl;
+  }
+
+  function downloadResized() {
+    if (!resizedDataUrl) return;
+    const a = document.createElement("a");
+    a.href = resizedDataUrl;
+    a.download = "resized-photo.jpg";
+    a.click();
+  }
+</script>
+</body>
+</html>

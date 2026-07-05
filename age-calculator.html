@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Age Calculator — JobSuperFast</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css" />
+<style>
+  .tool-card { max-width: 520px; margin: 0 auto; background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 28px; }
+  .result-box { background: var(--bg); border-radius: 10px; padding: 18px; margin-top: 18px; display: none; }
+  .result-box.show { display: block; }
+  .result-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; text-align: center; margin-bottom: 12px; }
+  .result-grid .big { font-size: 24px; font-weight: 700; color: var(--accent); }
+  .result-grid .small { font-size: 11.5px; color: var(--text-muted); }
+  .eligibility-line { font-size: 13.5px; padding: 10px; border-radius: 8px; margin-top: 6px; }
+  .eligibility-line.ok { background: rgba(52,209,124,0.12); color: var(--success); }
+  .eligibility-line.no { background: rgba(241,96,99,0.12); color: var(--danger); }
+</style>
+</head>
+<body>
+
+<div id="app-utility"></div>
+<div id="app-ticker"></div>
+<div id="app-header"></div>
+
+<main class="container">
+  <div class="page-hero">
+    <h1>📅 Age Calculator for Govt Exams</h1>
+    <p>Calculate your exact age as on the recruitment's cutoff date — the same way SSC, UPSC and Railway forms require.</p>
+  </div>
+
+  <div class="tool-card" style="margin:24px auto 60px;">
+    <div class="field">
+      <label for="dob-input">Your Date of Birth</label>
+      <input id="dob-input" type="date" />
+    </div>
+    <div class="field">
+      <label for="cutoff-input">Cutoff Date (as mentioned in the notification)</label>
+      <input id="cutoff-input" type="date" />
+    </div>
+    <div class="field">
+      <label for="min-age">Minimum Age Required (optional)</label>
+      <input id="min-age" type="number" placeholder="e.g. 18" />
+    </div>
+    <div class="field">
+      <label for="max-age">Maximum Age Allowed (optional)</label>
+      <input id="max-age" type="number" placeholder="e.g. 32" />
+    </div>
+    <button class="btn btn-accent btn-block" onclick="calculateAge()">Calculate Age</button>
+
+    <div class="result-box" id="result-box">
+      <div class="result-grid">
+        <div><div class="big" id="res-years">0</div><div class="small">YEARS</div></div>
+        <div><div class="big" id="res-months">0</div><div class="small">MONTHS</div></div>
+        <div><div class="big" id="res-days">0</div><div class="small">DAYS</div></div>
+      </div>
+      <div id="eligibility-result"></div>
+    </div>
+  </div>
+</main>
+
+<footer class="site-footer">
+  <div class="container"><div class="footer-bottom"><span>© 2025 JobSuperFast.</span></div></div>
+</footer>
+
+<div id="app-modals"></div>
+
+<script src="firebase-config.js"></script>
+<script src="script.js"></script>
+<script>
+  function calculateAge() {
+    const dobVal = document.getElementById("dob-input").value;
+    const cutoffVal = document.getElementById("cutoff-input").value || new Date().toISOString().slice(0, 10);
+    if (!dobVal) { showToast("Please enter your date of birth", true); return; }
+
+    const dob = new Date(dobVal);
+    const cutoff = new Date(cutoffVal);
+    if (dob > cutoff) { showToast("Date of birth is after the cutoff date", true); return; }
+
+    let years = cutoff.getFullYear() - dob.getFullYear();
+    let months = cutoff.getMonth() - dob.getMonth();
+    let days = cutoff.getDate() - dob.getDate();
+    if (days < 0) {
+      months -= 1;
+      const prevMonth = new Date(cutoff.getFullYear(), cutoff.getMonth(), 0);
+      days += prevMonth.getDate();
+    }
+    if (months < 0) { years -= 1; months += 12; }
+
+    document.getElementById("res-years").textContent = years;
+    document.getElementById("res-months").textContent = months;
+    document.getElementById("res-days").textContent = days;
+    document.getElementById("result-box").classList.add("show");
+
+    const minAge = parseFloat(document.getElementById("min-age").value);
+    const maxAge = parseFloat(document.getElementById("max-age").value);
+    const el = document.getElementById("eligibility-result");
+    if (!isNaN(minAge) || !isNaN(maxAge)) {
+      const ageInYears = years + months / 12;
+      const eligible = (isNaN(minAge) || ageInYears >= minAge) && (isNaN(maxAge) || ageInYears <= maxAge);
+      el.innerHTML = `<div class="eligibility-line ${eligible ? "ok" : "no"}">${eligible ? "✅ You are within the age limit for this exam." : "❌ You do not meet the age criteria for this exam."}</div>`;
+    } else {
+      el.innerHTML = "";
+    }
+  }
+</script>
+</body>
+</html>

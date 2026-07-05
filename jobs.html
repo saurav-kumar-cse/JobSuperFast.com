@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>All Job Updates — JobSuperFast</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css" />
+<style>
+  .jobs-table { width: 100%; border-collapse: collapse; background: var(--card-bg); border-radius: var(--radius); overflow: hidden; }
+  .jobs-table th { text-align: left; padding: 12px 14px; font-size: 12px; color: var(--text-muted); border-bottom: 1px solid var(--border); cursor: pointer; white-space: nowrap; }
+  .jobs-table td { padding: 14px; border-bottom: 1px solid var(--border); font-size: 13.5px; vertical-align: top; }
+  .jobs-table tr:last-child td { border-bottom: none; }
+  .row-title { font-weight: 700; cursor: pointer; }
+  .row-title:hover { color: var(--accent); }
+  .expand-row { display: none; background: var(--bg); }
+  .expand-row.open { display: table-row; }
+  .expand-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; padding: 6px 0; }
+  .expand-item .label { font-size: 11px; color: var(--text-muted); }
+  .expand-item .value { font-size: 13px; font-weight: 600; margin-top: 2px; }
+  .table-scroll { overflow-x: auto; }
+  @media (max-width: 760px) { .expand-grid { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+
+<div id="app-utility"></div>
+<div id="app-ticker"></div>
+<div id="app-header"></div>
+
+<main class="container">
+  <div class="page-hero">
+    <h1>All Job Updates</h1>
+    <p>Browse, filter and sort every active recruitment, result, admit card and answer key.</p>
+  </div>
+
+  <section class="search-section">
+    <div class="search-row">
+      <div class="search-box">
+        <span class="search-icon">🔍</span>
+        <input id="search-input" type="text" placeholder="Search by post, department or board…" oninput="filterAndRenderTable()" />
+      </div>
+    </div>
+    <div class="category-tabs" id="category-tabs"></div>
+    <div class="filter-row">
+      <select class="filter-select" id="filter-qualification" onchange="filterAndRenderTable()">
+        <option value="">All Qualifications</option>
+        <option>10th Pass</option>
+        <option>12th Pass</option>
+        <option>Graduate</option>
+        <option>Post Graduate</option>
+      </select>
+      <select class="filter-select" id="filter-state" onchange="filterAndRenderTable()">
+        <option value="">All States (Pan India)</option>
+        <option>All India</option>
+        <option>Haryana</option>
+      </select>
+    </div>
+    <div class="results-count" id="results-count"></div>
+  </section>
+
+  <section class="table-scroll">
+    <table class="jobs-table">
+      <thead>
+        <tr>
+          <th onclick="setSort('title')">Post Name ↕</th>
+          <th onclick="setSort('org')">Department ↕</th>
+          <th onclick="setSort('qualification')">Qualification ↕</th>
+          <th onclick="setSort('lastDate')">Last Date ↕</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody id="jobs-tbody">
+        <!-- rows injected here -->
+      </tbody>
+    </table>
+  </section>
+
+  <div class="load-more-wrap">
+    <button class="btn btn-outline" id="load-more-btn" onclick="loadMoreRows()">Load More</button>
+  </div>
+</main>
+
+<footer class="site-footer">
+  <div class="container">
+    <div class="footer-bottom">
+      <span>© 2025 JobSuperFast. All information is for reference only — always verify on official websites.</span>
+    </div>
+  </div>
+</footer>
+
+<div id="app-modals"></div>
+
+<script src="firebase-config.js"></script>
+<script src="script.js"></script>
+<script>
+  const CATEGORIES = [
+    { key: "", label: "All Updates", icon: "🔥" },
+    { key: "latest-jobs", label: "Latest Jobs", icon: "💼" },
+    { key: "admit-cards", label: "Admit Cards", icon: "📄" },
+    { key: "results", label: "Results", icon: "🏅" },
+    { key: "answer-keys", label: "Answer Keys", icon: "🔑" },
+    { key: "syllabus", label: "Syllabus", icon: "📖" },
+    { key: "admissions", label: "Admissions", icon: "🎓" },
+  ];
+  const urlParams = new URLSearchParams(window.location.search);
+  let activeCategory = urlParams.get("category") || "";
+  let sortKey = "postDate";
+  let sortDir = -1;
+  let visibleRows = 8;
+  let openRowId = null;
+
+  function renderCategoryTabs() {
+    document.getElementById("category-tabs").innerHTML = CATEGORIES.map(
+      (c) => `<button class="pill-tab ${c.key === activeCategory ? "active" : ""}" onclick="setCategory('${c.key}')">${c.icon} ${c.label}</button>`
+    ).join("");
+  }
+  function setCategory(key) { activeCategory = key; visibleRows = 8; renderCategoryTabs(); filterAndRenderTable(); }
+  function setSort(key) {
+    sortDir = sortKey === key ? sortDir * -1 : -1;
+    sortKey = key;
+    filterAndRenderTable();
+  }
+
+  function getFilteredJobs() {
+    const search = document.getElementById("search-input").value.toLowerCase();
+    const qualification = document.getElementById("filter-qualification").value;
+    const state = document.getElementById("filter-state").value;
+    let jobs = loadJobs().filter((j) => {
+      if (activeCategory && j.category !== activeCategory) return false;
+      if (search && !j.title.toLowerCase().includes(search) && !j.orgFull.toLowerCase().includes(search)) return false;
+      if (qualification && j.qualification !== qualification) return false;
+      if (state && j.state !== state) return false;
+      return true;
+    });
+    jobs.sort((a, b) => {
+      const av = (a[sortKey] || "").toString().toLowerCase();
+      const bv = (b[sortKey] || "").toString().toLowerCase();
+      return av > bv ? sortDir : av < bv ? -sortDir : 0;
+    });
+    return jobs;
+  }
+
+  function toggleExpand(id) {
+    openRowId = openRowId === id ? null : id;
+    filterAndRenderTable();
+  }
+
+  function filterAndRenderTable() {
+    const jobs = getFilteredJobs();
+    const visible = jobs.slice(0, visibleRows);
+    const tbody = document.getElementById("jobs-tbody");
+
+    if (!visible.length) {
+      tbody.innerHTML = `<tr><td colspan="5"><div class="empty-state"><div class="icon">🗂️</div>No matching updates found.</div></td></tr>`;
+    } else {
+      tbody.innerHTML = visible
+        .map((j) => {
+          const isOpen = openRowId === j.id;
+          return `
+          <tr>
+            <td><span class="row-title" onclick="toggleExpand('${j.id}')">${j.title}</span></td>
+            <td>${j.orgFull}</td>
+            <td>${j.qualification}</td>
+            <td>${j.lastDate}</td>
+            <td><a class="btn btn-outline" style="padding:6px 12px; font-size:12px;" href="job-detail.html?id=${j.id}">View</a></td>
+          </tr>
+          <tr class="expand-row ${isOpen ? "open" : ""}">
+            <td colspan="5">
+              <div class="expand-grid">
+                <div class="expand-item"><div class="label">Age Limit</div><div class="value">${j.ageLimit}</div></div>
+                <div class="expand-item"><div class="label">Application Fee</div><div class="value">${j.fee}</div></div>
+                <div class="expand-item"><div class="label">Total Vacancies</div><div class="value">${j.totalVacancies}</div></div>
+                <div class="expand-item"><div class="label">How to Apply</div><div class="value"><a href="${j.applyLink}" style="color:var(--accent);">Apply Online →</a></div></div>
+              </div>
+              <p style="font-size:13px; color:var(--text-muted); margin:8px 0 0;">${j.details}</p>
+              <a href="${j.notificationLink}" style="font-size:12.5px; color:var(--primary); font-weight:600;">📄 Download Official Notification</a>
+            </td>
+          </tr>`;
+        })
+        .join("");
+    }
+    document.getElementById("results-count").textContent = `Showing ${visible.length} of ${jobs.length} updates`;
+    document.getElementById("load-more-btn").style.display = jobs.length > visibleRows ? "inline-flex" : "none";
+  }
+  function loadMoreRows() { visibleRows += 8; filterAndRenderTable(); }
+
+  renderCategoryTabs();
+  filterAndRenderTable();
+</script>
+</body>
+</html>

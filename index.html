@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>JobSuperFast — India's Fastest Govt Job Updates</title>
+<meta name="description" content="Latest Sarkari job updates, results, admit cards, answer keys and syllabus — all in one fast, modern portal." />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<div id="app-utility"></div>
+<div id="app-ticker"></div>
+<div id="app-header"></div>
+
+<main class="container">
+
+  <section class="search-section">
+    <div class="search-row">
+      <div class="search-box">
+        <span class="search-icon">🔍</span>
+        <input id="search-input" type="text" placeholder="Search Exam, Recruitment, Post or Board (e.g. SSC CGL, RRB NTPC, UPSC, Police)…" oninput="filterAndRender()" />
+      </div>
+      <div class="view-toggle">
+        <button id="view-box" class="active" onclick="setView('box')">▦ 3-Column Box</button>
+        <button id="view-grid" onclick="setView('grid')">▧ Cards Grid</button>
+      </div>
+    </div>
+
+    <div class="category-tabs" id="category-tabs">
+      <!-- filled by renderCategoryTabs() -->
+    </div>
+
+    <div class="filter-row">
+      <select class="filter-select" id="filter-qualification" onchange="filterAndRender()">
+        <option value="">All Qualifications</option>
+        <option>10th Pass</option>
+        <option>12th Pass</option>
+        <option>Graduate</option>
+        <option>Post Graduate</option>
+      </select>
+      <select class="filter-select" id="filter-state" onchange="filterAndRender()">
+        <option value="">All States (Pan India)</option>
+        <option>All India</option>
+        <option>Haryana</option>
+        <option>Delhi</option>
+        <option>Uttar Pradesh</option>
+      </select>
+      <select class="filter-select" id="filter-org" onchange="filterAndRender()">
+        <option value="">All Organizations / Boards</option>
+        <option>SSC</option>
+        <option>RRB</option>
+        <option>UPSC</option>
+        <option>IBPS</option>
+        <option>CBSE</option>
+        <option>NTA</option>
+        <option>AIIMS</option>
+        <option>HSSC</option>
+      </select>
+    </div>
+
+    <div class="results-count" id="results-count"></div>
+  </section>
+
+  <section>
+    <div class="jobs-grid" id="jobs-grid">
+      <!-- job cards injected here -->
+    </div>
+    <div class="load-more-wrap">
+      <button class="btn btn-outline" id="load-more-btn" onclick="loadMore()">Load More Updates</button>
+    </div>
+  </section>
+
+</main>
+
+<footer class="site-footer">
+  <div class="container">
+    <div class="footer-grid">
+      <div class="footer-col">
+        <h4>⚡ JobSuperFast</h4>
+        <p style="color:var(--text-muted); font-size:13px; max-width:280px;">
+          India's fastest Sarkari job update portal — latest jobs, results, admit cards, answer keys and syllabus in one place.
+        </p>
+        <div class="social-icons" style="margin-top:12px;">
+          <a href="#">📘</a><a href="#">📸</a><a href="#">🐦</a><a href="#">▶️</a>
+        </div>
+      </div>
+      <div class="footer-col">
+        <h4>Quick Links</h4>
+        <a href="jobs.html">Latest Jobs</a>
+        <a href="jobs.html?category=results">Results</a>
+        <a href="jobs.html?category=admit-cards">Admit Card</a>
+        <a href="jobs.html?category=syllabus">Syllabus</a>
+      </div>
+      <div class="footer-col">
+        <h4>Tools</h4>
+        <a href="age-calculator.html">Age Calculator</a>
+        <a href="photo-resizer.html">Photo Resizer</a>
+        <a href="mock-quiz.html">Mock Quiz</a>
+        <a href="dashboard.html">My Dashboard</a>
+      </div>
+      <div class="footer-col">
+        <h4>Info</h4>
+        <a href="#">About Us</a>
+        <a href="#">Contact</a>
+        <a href="#">Disclaimer</a>
+        <a href="#">Privacy Policy</a>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span>© 2025 JobSuperFast. All information is for reference only — always verify on official websites.</span>
+      <span>Made in India 🇮🇳</span>
+    </div>
+  </div>
+</footer>
+
+<div id="app-modals"></div>
+
+<script src="firebase-config.js"></script>
+<script src="script.js"></script>
+<script>
+  const CATEGORIES = [
+    { key: "", label: "All Updates", icon: "🔥" },
+    { key: "latest-jobs", label: "Latest Jobs", icon: "💼" },
+    { key: "admit-cards", label: "Admit Cards", icon: "📄" },
+    { key: "results", label: "Results", icon: "🏅" },
+    { key: "answer-keys", label: "Answer Keys", icon: "🔑" },
+    { key: "syllabus", label: "Syllabus", icon: "📖" },
+    { key: "admissions", label: "Admissions", icon: "🎓" },
+  ];
+  let activeCategory = "";
+  let activeView = localStorage.getItem("jsf_view") || "box";
+  let visibleCount = 6;
+
+  function renderCategoryTabs() {
+    const el = document.getElementById("category-tabs");
+    el.innerHTML = CATEGORIES.map(
+      (c) => `<button class="pill-tab ${c.key === activeCategory ? "active" : ""}" onclick="setCategory('${c.key}')">${c.icon} ${c.label}</button>`
+    ).join("");
+  }
+  function setCategory(key) {
+    activeCategory = key;
+    visibleCount = 6;
+    renderCategoryTabs();
+    filterAndRender();
+  }
+  function setView(view) {
+    activeView = view;
+    localStorage.setItem("jsf_view", view);
+    document.getElementById("view-box").classList.toggle("active", view === "box");
+    document.getElementById("view-grid").classList.toggle("active", view === "grid");
+    filterAndRender();
+  }
+
+  function getFilteredJobs() {
+    const search = document.getElementById("search-input").value.toLowerCase();
+    const qualification = document.getElementById("filter-qualification").value;
+    const state = document.getElementById("filter-state").value;
+    const org = document.getElementById("filter-org").value;
+    return loadJobs().filter((j) => {
+      if (activeCategory && j.category !== activeCategory) return false;
+      if (search && !j.title.toLowerCase().includes(search) && !j.orgFull.toLowerCase().includes(search)) return false;
+      if (qualification && j.qualification !== qualification) return false;
+      if (state && j.state !== state) return false;
+      if (org && j.org !== org) return false;
+      return true;
+    });
+  }
+
+  function filterAndRender() {
+    const jobs = getFilteredJobs();
+    const grid = document.getElementById("jobs-grid");
+    grid.classList.toggle("view-list", activeView === "grid");
+    const visible = jobs.slice(0, visibleCount);
+
+    if (!visible.length) {
+      grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1;"><div class="icon">🗂️</div>No matching updates found. Try clearing a filter.</div>`;
+    } else {
+      grid.innerHTML = visible.map(jobCardHtml).join("");
+    }
+    document.getElementById("results-count").textContent = `Showing ${visible.length} of ${jobs.length} active recruitment updates`;
+    document.getElementById("load-more-btn").style.display = jobs.length > visibleCount ? "inline-flex" : "none";
+  }
+  function loadMore() {
+    visibleCount += 6;
+    filterAndRender();
+  }
+
+  renderCategoryTabs();
+  setView(activeView);
+  filterAndRender();
+</script>
+<script type="module">
+  // Import the functions you need from the SDKs you need
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-app.js";
+  import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.15.0/firebase-analytics.js";
+  // TODO: Add SDKs for Firebase products that you want to use
+  // https://firebase.google.com/docs/web/setup#available-libraries
+
+  // Your web app's Firebase configuration
+  // For Firebase JS SDK v7.20.0 and later, measurementId is optional
+  const firebaseConfig = {
+    apiKey: "AIzaSyAHVl4siPhUdxSvpA4KHE7vfxEDy2tljKE",
+    authDomain: "jobsuperfast-v2.firebaseapp.com",
+    projectId: "jobsuperfast-v2",
+    storageBucket: "jobsuperfast-v2.firebasestorage.app",
+    messagingSenderId: "665169312640",
+    appId: "1:665169312640:web:9ccd52add7ef3bd4541f65",
+    measurementId: "G-NQ5HC6NRDV"
+  };
+
+  // Initialize Firebase
+  const app = initializeApp(firebaseConfig);
+  const analytics = getAnalytics(app);
+</script>
+</body>
+</html>

@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>My Dashboard — JobSuperFast</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css" />
+<style>
+  .dash-layout { display: grid; grid-template-columns: 260px 1fr; gap: 24px; padding: 24px 0 50px; align-items: start; }
+  .dash-sidebar { background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; text-align: center; }
+  .dash-avatar { width: 64px; height: 64px; border-radius: 50%; background: var(--primary); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 24px; font-weight: 700; margin: 0 auto 12px; }
+  .dash-nav button { width: 100%; text-align: left; padding: 10px 12px; border: none; background: transparent; border-radius: 8px; font-size: 13.5px; font-weight: 600; color: var(--text-muted); cursor: pointer; margin-top: 4px; }
+  .dash-nav button.active { background: var(--bg); color: var(--accent); }
+  .dash-panel { background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 24px; }
+  .toggle-row { display: flex; justify-content: space-between; align-items: center; padding: 14px 0; border-bottom: 1px solid var(--border); }
+  .toggle-row:last-child { border-bottom: none; }
+  .switch { width: 44px; height: 24px; border-radius: 14px; background: var(--border); position: relative; cursor: pointer; border: none; flex-shrink: 0; }
+  .switch .dot { width: 18px; height: 18px; border-radius: 50%; background: #fff; position: absolute; top: 3px; left: 3px; transition: left 0.15s ease; }
+  .switch.on { background: var(--success); }
+  .switch.on .dot { left: 23px; }
+  @media (max-width: 760px) { .dash-layout { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+
+<div id="app-utility"></div>
+<div id="app-ticker"></div>
+<div id="app-header"></div>
+
+<main class="container">
+  <div class="page-hero">
+    <h1>My Dashboard</h1>
+    <p>Manage your saved jobs, alert preferences and profile.</p>
+  </div>
+
+  <div id="dashboard-body"></div>
+</main>
+
+<footer class="site-footer">
+  <div class="container">
+    <div class="footer-bottom"><span>© 2025 JobSuperFast.</span></div>
+  </div>
+</footer>
+
+<div id="app-modals"></div>
+
+<script src="firebase-config.js"></script>
+<script src="script.js"></script>
+<script>
+  let activeTab = "saved";
+
+  function renderDashboard() {
+    const user = getCurrentUser();
+    const body = document.getElementById("dashboard-body");
+
+    if (!user) {
+      body.innerHTML = `
+        <div class="empty-state">
+          <div class="icon">🔒</div>
+          You need to sign in to view your dashboard.
+          <div style="margin-top:14px;"><button class="btn btn-primary" onclick="openModal('login-modal')">Sign In</button></div>
+        </div>`;
+      return;
+    }
+
+    body.innerHTML = `
+      <div class="dash-layout">
+        <div class="dash-sidebar">
+          <div class="dash-avatar">${user.name.charAt(0).toUpperCase()}</div>
+          <div style="font-weight:700;">${user.name}</div>
+          <div style="font-size:12.5px; color:var(--text-muted); margin-bottom:14px;">${user.email}</div>
+          <div class="dash-nav">
+            <button class="${activeTab === "saved" ? "active" : ""}" onclick="setTab('saved')">🔖 Saved Jobs</button>
+            <button class="${activeTab === "alerts" ? "active" : ""}" onclick="setTab('alerts')">🔔 Alert Preferences</button>
+            <button class="${activeTab === "profile" ? "active" : ""}" onclick="setTab('profile')">👤 Edit Profile</button>
+            <button onclick="logout()" style="color:var(--danger); margin-top:10px;">↩ Logout</button>
+          </div>
+        </div>
+        <div class="dash-panel" id="dash-panel"></div>
+      </div>`;
+    renderPanel();
+  }
+
+  function setTab(tab) { activeTab = tab; renderDashboard(); }
+
+  function renderPanel() {
+    const panel = document.getElementById("dash-panel");
+    if (activeTab === "saved") {
+      const savedIds = getSavedJobIds();
+      const savedJobs = loadJobs().filter((j) => savedIds.includes(j.id));
+      panel.innerHTML = savedJobs.length
+        ? `<div class="jobs-grid" style="grid-template-columns:repeat(2,1fr); padding:0;">${savedJobs.map(jobCardHtml).join("")}</div>`
+        : `<div class="empty-state"><div class="icon">🗂️</div>No jobs saved yet.<br><a href="jobs.html" class="btn btn-outline" style="margin-top:12px;">Browse Jobs</a></div>`;
+    } else if (activeTab === "alerts") {
+      const prefs = JSON.parse(localStorage.getItem("jsf_alert_prefs") || '{"email":true,"telegram":false,"whatsapp":false}');
+      panel.innerHTML = `
+        <h3 style="margin-top:0;">Alert Preferences</h3>
+        <div class="toggle-row"><span>Email Notifications</span><button class="switch ${prefs.email ? "on" : ""}" onclick="togglePref('email', this)"><span class="dot"></span></button></div>
+        <div class="toggle-row"><span>Telegram Alerts</span><button class="switch ${prefs.telegram ? "on" : ""}" onclick="togglePref('telegram', this)"><span class="dot"></span></button></div>
+        <div class="toggle-row"><span>WhatsApp Alerts</span><button class="switch ${prefs.whatsapp ? "on" : ""}" onclick="togglePref('whatsapp', this)"><span class="dot"></span></button></div>`;
+    } else if (activeTab === "profile") {
+      const user = getCurrentUser();
+      panel.innerHTML = `
+        <h3 style="margin-top:0;">Edit Profile</h3>
+        <div class="field"><label>Full Name</label><input id="profile-name" value="${user.name}" /></div>
+        <div class="field"><label>Email</label><input id="profile-email" value="${user.email}" /></div>
+        <button class="btn btn-primary" onclick="saveProfile()">Save Changes</button>`;
+    }
+  }
+
+  function togglePref(key, btn) {
+    const prefs = JSON.parse(localStorage.getItem("jsf_alert_prefs") || '{"email":true,"telegram":false,"whatsapp":false}');
+    prefs[key] = !prefs[key];
+    localStorage.setItem("jsf_alert_prefs", JSON.stringify(prefs));
+    btn.classList.toggle("on");
+    showToast("Preference updated");
+  }
+
+  function saveProfile() {
+    const name = document.getElementById("profile-name").value.trim();
+    const email = document.getElementById("profile-email").value.trim();
+    if (!name || !email) return showToast("Please fill all fields", true);
+    const user = getCurrentUser();
+    user.name = name; user.email = email;
+    localStorage.setItem("jsf_user", JSON.stringify(user));
+    showToast("Profile updated");
+    renderHeader();
+    renderDashboard();
+  }
+
+  renderDashboard();
+</script>
+</body>
+</html>
